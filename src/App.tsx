@@ -13,6 +13,11 @@ import Utxos from "src/pages/UTXOs";
 import Settings from "src/pages/Settings";
 
 import { Address, DecoratedTx, DecoratedUtxo } from "src/types";
+import { getNewMnemonic,
+    getMasterPrivateKey,
+    getXpubFromPrivateKey,
+    deriveChildPublicKey,
+    getAddressFromChildPubkey } from "./utils/bitcoinjs-lib";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -28,13 +33,20 @@ export default function App() {
   useEffect(() => {
     const getSeed = async () => {
       try {
-        throw new Error("Function not implemented yet");
+        const createMnemonic = getNewMnemonic()
+        setMnemonic(createMnemonic);
+        const createPrivatekey = await getMasterPrivateKey(mnemonic)
+        setMasterFingerprint(createPrivatekey.fingerprint)
+        const derivationPath = "m/84'/0'/0'"; // P2WPKH
+        const createXpub = getXpubFromPrivateKey(createPrivatekey, derivationPath);
+        setXpub(createXpub) 
       } catch (e) {
         console.log(e);
       }
     };
+    
     getSeed();
-  }, [mnemonic]);
+  });
 
   // Addresses
   useEffect(() => {
@@ -49,14 +61,35 @@ export default function App() {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        throw new Error("Function not implemented yet");
+        const createAddressBatch: Address[] = [];
+        for(let i = 0; i < 10; i++) {
+          const derivationPath = `0/${i}`
+          const createChildPubkey = deriveChildPublicKey(xpub, derivationPath)
+          const createAddress = getAddressFromChildPubkey(createChildPubkey)
+          createAddressBatch.push({...createAddress,derivationPath,masterFingerprint})
+        }
+        setAddresses(createAddressBatch);
+
+        const currentChangeAddressBatch: Address[] = [];
+       for (let i = 0; i < 10; i++) {
+          const derivationPath = `1/${i}`;
+          const currentChildPubkey = deriveChildPublicKey(xpub, derivationPath);
+          const currentAddress = getAddressFromChildPubkey(currentChildPubkey);
+          currentChangeAddressBatch.push({
+              ...currentAddress,
+              derivationPath,
+              masterFingerprint,
+            });
+        }
+
+        setChangeAddresses(currentChangeAddressBatch);
       } catch (e) {
         console.log(e);
       }
     };
 
     fetchTransactions();
-  }, [addresses, changeAddresses]);
+  }, [addresses, changeAddresses, xpub, masterFingerprint]);
 
   // UTXOs
   useEffect(() => {
